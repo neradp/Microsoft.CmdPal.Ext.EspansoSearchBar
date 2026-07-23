@@ -43,7 +43,21 @@ jobs:
         run: msbuild EspansoSearchBar.sln /t:Restore /p:Configuration=Release /p:Platform=${{ env.PLATFORM }}
 
       - name: Build
-        run: msbuild EspansoSearchBar.sln /m /p:Configuration=Release /p:Platform=${{ env.PLATFORM }} /p:GenerateAppxPackageOnBuild=true /p:AppxPackageDir=AppxPackages\
+        run: msbuild EspansoSearchBar.sln /m /p:Configuration=Release /p:Platform=${{ env.PLATFORM }} /p:GenerateAppxPackageOnBuild=true /p:AppxPackageDir=AppxPackages\ /p:AppxPackageSigningEnabled=false
+
+      # Diagnostic step so the run log always shows exactly where the .msix ended up.
+      - name: List produced packages
+        run: Get-ChildItem -Recurse -Include *.msix,*.msixbundle,*.appx,*.cer | Select-Object -ExpandProperty FullName
+
+      - name: Upload MSIX package
+        uses: actions/upload-artifact@v4
+        with:
+          name: EspansoSearchBar-msix-${{ env.PLATFORM }}
+          # AppxPackageDir is relative to the project directory, so the package lands under
+          # EspansoSearchBar/AppxPackages/, not under bin/.
+          path: |
+            EspansoSearchBar/AppxPackages/**
+          if-no-files-found: error
 
       - name: Upload build output
         uses: actions/upload-artifact@v4
