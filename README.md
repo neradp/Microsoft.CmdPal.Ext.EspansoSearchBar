@@ -243,9 +243,9 @@ Steps once opened in Visual Studio:
 4. In Command Palette, run `Reload` → **Reload Command Palette extensions**.
 5. Open Command Palette, select **Espanso Search Bar**, and start typing a trigger.
 
-Placeholder assets (`Assets/*.png`) are included so the project deploys out of the box; replace
-them with real icons before publishing (see
-https://learn.microsoft.com/windows/powertoys/command-palette/publish-extension).
+The `Assets/*.png` icons are simple generated graphics (teal rounded square with a white ":e"
+monogram — colon as the typical espanso trigger prefix — and a yellow text caret). They are
+original artwork for this project, intentionally not derived from the espanso logo.
 
 ### 6.3 Enable/disable state and search gating
 
