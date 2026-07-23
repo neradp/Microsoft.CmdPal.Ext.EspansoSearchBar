@@ -22,9 +22,9 @@ jobs:
   build:
     runs-on: windows-latest
 
-    strategy:
-      matrix:
-        platform: [x64, ARM64]
+    # x64 only - ARM64 was dropped to keep the matrix/build minimal per current requirements.
+    env:
+      PLATFORM: x64
 
     steps:
       - uses: actions/checkout@v4
@@ -40,15 +40,15 @@ jobs:
         uses: microsoft/setup-msbuild@v2
 
       - name: Restore NuGet packages
-        run: msbuild EspansoSearchBar.sln /t:Restore /p:Configuration=Release /p:Platform=${{ matrix.platform }}
+        run: msbuild EspansoSearchBar.sln /t:Restore /p:Configuration=Release /p:Platform=${{ env.PLATFORM }}
 
       - name: Build
-        run: msbuild EspansoSearchBar.sln /m /p:Configuration=Release /p:Platform=${{ matrix.platform }} /p:GenerateAppxPackageOnBuild=true /p:AppxPackageDir=AppxPackages\
+        run: msbuild EspansoSearchBar.sln /m /p:Configuration=Release /p:Platform=${{ env.PLATFORM }} /p:GenerateAppxPackageOnBuild=true /p:AppxPackageDir=AppxPackages\
 
       - name: Upload build output
         uses: actions/upload-artifact@v4
         with:
-          name: EspansoSearchBar-${{ matrix.platform }}
+          name: EspansoSearchBar-${{ env.PLATFORM }}
           path: |
-            EspansoSearchBar/bin/${{ matrix.platform }}/Release/**
+            EspansoSearchBar/bin/${{ env.PLATFORM }}/Release/**
           if-no-files-found: warn

@@ -134,8 +134,9 @@ machine at all for editing the source).
 This repo includes `.github/workflows/build.yml`, which:
 
 1. Checks out the code on a hosted Windows runner.
-2. Restores and builds the solution with `msbuild` (via `microsoft/setup-msbuild`), for both
-   `x64` and `ARM64`.
+2. Restores and builds the solution with `msbuild` (via `microsoft/setup-msbuild`) for `x64`
+   only (ARM64 was dropped to keep the CI matrix minimal; re-add it later if Arm support is
+   needed).
 3. Uploads the build output (including the generated `.msix`/`.appx` package under
    `AppxPackages\`) as a downloadable workflow artifact.
 
@@ -145,7 +146,7 @@ To use it:
    free; private repos get a limited free monthly quota too).
 2. The workflow runs automatically on push/PR to `main`, or manually via the "Run workflow"
    button (Actions tab → "Build EspansoSearchBar" → "Run workflow").
-3. Once green, open the run and download the `EspansoSearchBar-x64` (or `-ARM64`) artifact.
+3. Once green, open the run and download the `EspansoSearchBar-x64` artifact.
 4. On an actual Windows 11 PC with [Developer Mode enabled](https://learn.microsoft.com/windows/apps/get-started/enable-your-device-for-development)
    and PowerToys + espanso installed, install the extracted `.msix` (double-click it, or
    `Add-AppxPackage -Path .\EspansoSearchBar_....msix` in PowerShell) and Command Palette will
@@ -193,8 +194,8 @@ Steps once opened in Visual Studio:
 
 1. Restore NuGet packages (`Microsoft.CommandPalette.Extensions`,
    `Microsoft.CommandPalette.Extensions.Toolkit`, `Shmuelie.WinRTServer`).
-2. Set the platform to `x64` (or `ARM64` on Arm devices) — `AnyCPU` is not supported by
-   WinAppSDK packaged apps.
+2. Set the platform to `x64` (the solution only defines `x64` configurations now) —
+   `AnyCPU` is not supported by WinAppSDK packaged apps.
 3. **Build → Deploy EspansoSearchBar**.
 4. In Command Palette, run `Reload` → **Reload Command Palette extensions**.
 5. Open Command Palette, select **Espanso Search Bar**, and start typing a trigger.

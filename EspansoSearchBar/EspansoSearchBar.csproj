@@ -42,14 +42,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.CommandPalette.Extensions" Version="0.4.0" />
-    <PackageReference Include="Microsoft.CommandPalette.Extensions.Toolkit" Version="0.4.0" />
+    <PackageReference Include="Microsoft.CommandPalette.Extensions" Version="0.11.260520004" />
     <PackageReference Include="Microsoft.Windows.CsWinRT" Version="2.2.0" />
-    <PackageReference Include="Shmuelie.WinRTServer" Version="3.0.2" />
-    <PackageReference Include="Shmuelie.WinRTServer.CsWinRT" Version="3.0.2" />
+    <PackageReference Include="Shmuelie.WinRTServer" Version="2.1.1" />
 
     <!-- Needed to enable building an MSIX package -->
-    <PackageReference Include="Microsoft.Windows.SDK.BuildTools.MSIX" Version="1.7.20250606001">
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools.MSIX" Version="1.7.20250829.1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
