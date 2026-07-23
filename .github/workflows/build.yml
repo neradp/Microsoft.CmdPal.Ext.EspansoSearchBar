@@ -27,17 +27,17 @@ jobs:
       PLATFORM: x64
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: "10.0.x"
           # Preview SDKs (the project uses a preview Windows SDK package version) need this.
           dotnet-quality: "preview"
 
       - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v2
+        uses: microsoft/setup-msbuild@v3
 
       - name: Restore NuGet packages
         run: msbuild EspansoSearchBar.sln /t:Restore /p:Configuration=Release /p:Platform=${{ env.PLATFORM }}
@@ -75,7 +75,7 @@ jobs:
         run: Get-ChildItem -Recurse -Include *.msix,*.msixbundle,*.appx,*.cer | Select-Object -ExpandProperty FullName
 
       - name: Upload MSIX package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: EspansoSearchBar-msix-${{ env.PLATFORM }}
           # AppxPackageDir is relative to the project directory, so the package lands under
@@ -85,7 +85,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload build output
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: EspansoSearchBar-${{ env.PLATFORM }}
           path: |
