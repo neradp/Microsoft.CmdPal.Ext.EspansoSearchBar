@@ -40,7 +40,13 @@
     <Application Id="App"
       Executable="$targetnametoken$.exe"
       EntryPoint="$targetentrypoint$">
+      <!-- AppListEntry="none" hides this app from the Start menu app list and, importantly,
+           from Command Palette's built-in "Apps" provider (its UWP scanner skips apps whose
+           AppListEntry is "none" - PowerToys Microsoft.CmdPal.Ext.Apps/Programs/UWP.cs).
+           Without it, a third launcher-style entry appears in palette results that just runs
+           the COM-server exe, which exits immediately and does nothing useful. -->
       <uap:VisualElements
+        AppListEntry="none"
         DisplayName="Espanso Search Bar"
         Description="Search, filter and trigger your espanso text-expansion matches directly from Command Palette."
         BackgroundColor="transparent"

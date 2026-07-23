@@ -39,6 +39,20 @@ jobs:
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v3
 
+      # Stamp a unique, monotonically increasing package version (0.0.<run_number>.0) into
+      # the manifest. Windows refuses to reinstall an MSIX with the same version that is
+      # already installed, so without this every artifact from CI would collide with the
+      # previously installed build. github.run_number increments per workflow run. (The
+      # revision digit stays 0 - it is reserved by the MSIX versioning rules.)
+      - name: Stamp package version
+        run: |
+          $manifest = "EspansoSearchBar\Package.appxmanifest"
+          $version = "0.0.${{ github.run_number }}.0"
+          $xml = [xml](Get-Content $manifest -Raw)
+          $xml.Package.Identity.Version = $version
+          $xml.Save((Resolve-Path $manifest))
+          Write-Host "Stamped package version $version"
+
       - name: Restore NuGet packages
         run: msbuild EspansoSearchBar.sln /t:Restore /p:Configuration=Release /p:Platform=${{ env.PLATFORM }}
 

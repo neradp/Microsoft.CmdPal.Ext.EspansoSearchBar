@@ -198,8 +198,20 @@ To use it:
 5. Then install the package (regular, non-elevated PowerShell is fine):
 
    ```powershell
-   Add-AppxPackage -Path .\EspansoSearchBar_0.0.1.0_x64.msix
+   Add-AppxPackage -Path .\EspansoSearchBar_0.0.42.0_x64.msix
    ```
+
+   CI stamps every run with a unique, increasing version (`0.0.<run number>.0`), so a package
+   from a newer run always installs cleanly as an update over the previous one. If you ever
+   need to *reinstall the exact same version* (Windows rejects that by default), add the
+   force-update flags:
+
+   ```powershell
+   Add-AppxPackage -Path .\EspansoSearchBar_0.0.42.0_x64.msix -ForceUpdateFromAnyVersion -ForceApplicationShutdown
+   ```
+
+   `-ForceUpdateFromAnyVersion` allows same-version (and downgrade) installs;
+   `-ForceApplicationShutdown` kills the running COM-server process so its files aren't locked.
 
    Command Palette will pick it up (run **Reload Command Palette extensions** inside the
    palette if it doesn't appear immediately) — no Visual Studio needed on that machine either.
