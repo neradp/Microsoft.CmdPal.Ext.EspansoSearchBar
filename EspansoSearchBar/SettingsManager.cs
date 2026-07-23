@@ -10,30 +10,26 @@ namespace EspansoSearchBar;
 /// Extension settings, surfaced by Command Palette on this extension's standard settings page
 /// (the gear icon). Two settings are exposed:
 ///
-///   - "Espanso enabled": a toggle bound to espanso's global expansion switch. Saving the
-///     settings form with a changed value runs "espanso cmd enable" / "espanso cmd disable"
-///     and updates <see cref="EspansoStateStore"/>'s best-effort assumption. Note that the
-///     settings form is a static Adaptive Card, so the toggle reflects the state at the time
-///     the page was opened (there is no live status inside the settings UI).
-///
 ///   - "Espanso executable path": optional override for where the espanso binary lives.
 ///     Normally auto-discovery in <see cref="EspansoCliRunner"/> finds it (registry user PATH
 ///     + default install folders), but portable installs in unusual locations need this.
+///
+///   - "Toggle automatic expansion": a stateless action disguised as a checkbox (the settings
+///     form is a static Adaptive Card, so a checkbox is the only switch-like control
+///     available). Checking it and saving runs "espanso cmd toggle" once and the checkbox
+///     resets itself to unchecked; its value is never persisted as checked. It deliberately
+///     does NOT try to display espanso's current on/off state: espanso offers no way to query
+///     it ("espanso cmd enable|disable|toggle" are one-way events), so any stateful switch
+///     would inevitably show stale/wrong values. The same Toggle (plus explicit Enable/
+///     Disable) actions also live on <see cref="Pages.EspansoStatusPage"/>.
 ///
 /// Settings persist to a JSON file under the packaged app's LocalState folder via the SDK's
 /// JsonSettingsManager (Utilities.BaseSettingsPath handles the MSIX path redirection).
 /// </summary>
 internal sealed class SettingsManager : JsonSettingsManager
 {
-    private const string EspansoEnabledKey = "espansoEnabled";
     private const string EspansoPathKey = "espansoPath";
-
-    private readonly ToggleSetting _espansoEnabled = new(
-        EspansoEnabledKey,
-        "Espanso enabled",
-        "Global espanso expansion switch ('espanso cmd enable/disable'). Saving a change applies it immediately. "
-            + "This reflects the last state set through this extension; espanso offers no way to query the real current state.",
-        defaultValue: true);
+    private const string ToggleExpansionKey = "toggleExpansion";
 
     private readonly TextSetting _espansoPath = new(
         EspansoPathKey,
@@ -44,7 +40,12 @@ internal sealed class SettingsManager : JsonSettingsManager
         Placeholder = "e.g. C:\\Users\\you\\espanso-portable\\espansod.exe",
     };
 
-    public bool EspansoEnabled => _espansoEnabled.Value;
+    private readonly ToggleSetting _toggleExpansion = new(
+        ToggleExpansionKey,
+        "Toggle automatic expansion",
+        "Global espanso expansion switch ('espanso cmd toggle'). Saving with this checked applies it immediately and the checkbox resets itself; "
+            + "espanso offers no way to query the real current state.",
+        defaultValue: false);
 
     public string EspansoPath => _espansoPath.Value ?? string.Empty;
 
@@ -52,85 +53,57 @@ internal sealed class SettingsManager : JsonSettingsManager
     {
         FilePath = SettingsJsonPath();
 
-        Settings.Add(_espansoEnabled);
         Settings.Add(_espansoPath);
+        Settings.Add(_toggleExpansion);
 
         LoadSettings();
-        ApplySideEffects(applyEnabledState: false);
+        // A stale "true" from a previous crash mid-save must not re-toggle espanso at startup.
+        _toggleExpansion.Value = false;
+        ApplySideEffects();
 
         Settings.SettingsChanged += (_, _) => OnSettingsChanged();
     }
 
     private void OnSettingsChanged()
     {
+        var toggleRequested = _toggleExpansion.Value;
+
+        // Always reset the action checkbox before persisting, so "checked" is never stored
+        // and the form comes back unchecked the next time it is opened.
+        _toggleExpansion.Value = false;
+
         SaveSettings();
-        ApplySideEffects(applyEnabledState: true);
+        ApplySideEffects();
+
+        if (toggleRequested)
+        {
+            _ = RunToggleAsync();
+        }
     }
 
-    /// <summary>
-    /// Pushes setting values into the parts of the extension they control. The executable
-    /// path is always applied (including at startup, so a previously saved override survives
-    /// restarts); the enabled state is only applied on explicit user changes, because at
-    /// startup we must not silently flip espanso to whatever the stored value happens to be.
-    /// </summary>
-    private void ApplySideEffects(bool applyEnabledState)
-    {
-        EspansoCliRunner.ExecutableOverride = EspansoPath;
-
-        if (!applyEnabledState)
-        {
-            // Startup: adopt the persisted toggle as our best-effort assumption without
-            // invoking the CLI (we must not silently flip espanso's real state on load).
-            EspansoStateStore.SetAssumedEnabled(EspansoEnabled);
-            return;
-        }
-
-        var enable = EspansoEnabled;
-        if (enable == EspansoStateStore.AssumedEnabled)
-        {
-            return; // No change - don't spam espanso with redundant IPC events.
-        }
-
-        _ = ApplyEnabledStateAsync(enable);
-    }
-
-    private static async Task ApplyEnabledStateAsync(bool enable)
+    private static async Task RunToggleAsync()
     {
         try
         {
-            var result = enable
-                ? await EspansoClient.EnableAsync().ConfigureAwait(false)
-                : await EspansoClient.DisableAsync().ConfigureAwait(false);
-
-            if (result.Succeeded)
+            var result = await EspansoClient.ToggleAsync().ConfigureAwait(false);
+            if (!result.Succeeded)
             {
-                EspansoStateStore.SetAssumedEnabled(enable);
-            }
-            else
-            {
-                ExtensionHost.LogMessage($"Applying espanso enabled={enable} from settings failed: {result.StandardError.Trim()}");
+                ExtensionHost.LogMessage($"'espanso cmd toggle' from settings failed: {result.StandardError.Trim()}");
             }
         }
         catch (Exception ex)
         {
-            ExtensionHost.LogMessage($"Applying espanso enabled={enable} from settings failed: {ex.Message}");
+            ExtensionHost.LogMessage($"'espanso cmd toggle' from settings failed: {ex.Message}");
         }
     }
 
     /// <summary>
-    /// Keeps the settings toggle in sync when the enabled state changes from elsewhere in the
-    /// extension (status page buttons, the "Enable espanso" item on the disabled banner).
-    /// Persists without re-triggering the enable/disable CLI side effect.
+    /// Pushes setting values into the parts of the extension they control. Applied both at
+    /// startup (so a previously saved override survives restarts) and on every save.
     /// </summary>
-    public void SyncEnabledState(bool enabled)
+    private void ApplySideEffects()
     {
-        if (_espansoEnabled.Value == enabled)
-        {
-            return;
-        }
-
-        _espansoEnabled.Value = enabled;
-        SaveSettings();
+        EspansoCliRunner.ExecutableOverride = EspansoPath;
     }
 
     private static string SettingsJsonPath()

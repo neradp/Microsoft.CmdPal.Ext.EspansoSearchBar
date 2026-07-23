@@ -27,7 +27,7 @@ public partial class EspansoSearchBarCommandsProvider : CommandProvider
         Icon = IconHelpers.FromRelativePath("Assets\\StoreLogo.png");
         Settings = _settingsManager.Settings;
 
-        _page = new EspansoSearchBarPage(_settingsManager);
+        _page = new EspansoSearchBarPage();
 
         _commands =
         [

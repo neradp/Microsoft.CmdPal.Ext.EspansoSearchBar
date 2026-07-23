@@ -28,10 +28,9 @@ internal sealed partial class EspansoServiceCommand : InvokableCommand
     private readonly Action? _onSuccess;
 
     /// <param name="onSuccess">
-    /// Optional callback invoked after a successful CLI call, used by the page to update
-    /// <see cref="EspansoStateStore"/>'s best-effort enabled/disabled assumption and refresh
-    /// the list. Not invoked on failure, since we can't tell whether the CLI call actually
-    /// changed anything (see EspansoStateStore's remarks on espanso's fire-and-forget IPC).
+    /// Optional callback invoked after a successful CLI call, used e.g. to refresh the status
+    /// page. Not invoked on failure. Note espanso's cmd events are fire-and-forget IPC, so
+    /// "success" only means the CLI call was delivered, not that state verifiably changed.
     /// </param>
     public EspansoServiceCommand(string name, string glyph, EspansoOperation operation, string successMessage, string failurePrefix, Action? onSuccess = null)
     {

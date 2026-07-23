@@ -21,9 +21,12 @@ See `README.md` for the full architecture, design decisions and build instructio
      expansion into the palette itself.
    - b. **Drive the real espanso CLI** (`espanso match exec -t <trigger>`); never reimplement
      espanso's expansion/IPC logic inside the extension.
-3. If espanso expansion is believed to be **disabled**, do not list/search matches — show only
-   a warning banner plus Enable/Toggle commands; resume normal search after a successful
-   enable.
+3. Matches are listed, searchable and manually triggerable **regardless of espanso's
+   automatic-expansion state**: `espanso cmd disable` only makes `DisableMiddleware`
+   (`espanso-engine/src/process/middleware/disable.rs`) block *keyboard* events, so a
+   `match exec` IPC request still expands normally. Since the state cannot be queried anyway
+   (see below), all Enable/Disable/Toggle surfaces in this extension are **stateless one-shot
+   actions**, never on/off switches claiming to show the current state.
 
 ## Hard rules for agents
 
@@ -71,10 +74,13 @@ These were confirmed by reading espanso's Rust source, not docs:
 - There is **no CLI/IPC query for the current enabled/disabled state**. `espanso cmd
   enable|disable|toggle` (`cli/cmd.rs`) are one-way events; `espanso service status` only says
   whether the worker *process* runs.
-- When expansion is disabled, a `match exec` request is silently dropped by
-  `SuppressMiddleware` (`espanso-engine/src/process/middleware/suppress.rs`) with no error
-  signal — hence `Espanso/EspansoStateStore.cs` tracks a *best-effort assumed* state that can
-  go stale if espanso is toggled externally (tray icon, Alt+Shift+X).
+- `espanso cmd disable` (runtime toggle, also Alt+Shift+X) is implemented by
+  `DisableMiddleware` (`espanso-engine/src/process/middleware/disable.rs`), which **only
+  blocks keyboard events** while disabled — a `match exec` request bypasses it and still
+  expands. (`SuppressMiddleware` in `suppress.rs` is a different mechanism: it drops
+  `MatchesDetected` events only when the *config file* has `enable: false`, not for the
+  runtime toggle.) So manual triggering from this extension works even with automatic
+  expansion disabled.
 - The Windows installer (`scripts/resources/windows/setupscript.iss`) never ships an
   `espanso.exe`: the real binary is **`espansod.exe`**, and `espanso.cmd` is a one-line shim
   (`@"%~dp0espansod.exe" %*`). Install dir is Inno `{autopf}\Espanso`
@@ -93,9 +99,9 @@ EspansoSearchBar/
 ├── Program.cs                       COM server bootstrap (mirrors the official template)
 ├── EspansoSearchBarExtension.cs     IExtension; GUID must match Package.appxmanifest
 ├── EspansoSearchBarCommandsProvider.cs  Two top-level items + Settings wiring
-├── SettingsManager.cs               Settings: espanso enabled toggle + executable path
-├── Espanso/                         CLI integration (runner, client, JSON model, state store)
-├── Pages/EspansoSearchBarPage.cs    DynamicListPage: search + disabled gating + reload item
-├── Pages/EspansoStatusPage.cs       Live 'service status' check + restart
+├── SettingsManager.cs               Settings: executable path + one-shot expansion toggle
+├── Espanso/                         CLI integration (runner, client, JSON model, text typer)
+├── Pages/EspansoSearchBarPage.cs    DynamicListPage: match search + reload item
+├── Pages/EspansoStatusPage.cs       Live 'service status' + restart + enable/disable/toggle
 └── Commands/                        Trigger / copy / service / refresh commands
 ```

@@ -9,17 +9,18 @@ Windows power users already use for everything else.
 ## Goals
 
 - **List espanso matches** in a searchable page; espanso self-management lives on its own
-  surfaces: a live **Espanso Status** page (service running check + restart) and the
-  extension **settings page** (enable/disable toggle, executable path override). The search
-  page itself keeps only the "Reload match list" helper.
+  surfaces: a live **Espanso Status** page (service running check + restart + stateless
+  enable/disable/toggle of automatic expansion) and the extension **settings page**
+  (executable path override + one-shot toggle action). The search page itself keeps only the
+  "Reload match list" helper.
 - **Let the user execute ("trigger") the selected match**:
   - Hide the Command Palette window first, so focus returns to whatever window/cursor
     the user was working in — espanso injects text into the currently focused control.
   - Trigger the match from the command line (`espanso match exec -t <trigger>`), i.e.
     don't reimplement espanso's expansion logic — just drive the real espanso CLI/IPC.
-- **If espanso expansion is (believed to be) disabled, don't search matches at all** — offer
-  only to enable it first, then resume searching (see "Enable/disable state and search
-  gating" below).
+- **Matches stay searchable and manually triggerable even while espanso's automatic expansion
+  is disabled** — disabling only affects keyboard-typed triggers, not `match exec` (see
+  "Enable/disable actions" below).
 
 ## 2. How it works (architecture)
 
@@ -273,39 +274,29 @@ The `Assets/*.png` icons are simple generated graphics (teal rounded square with
 monogram — colon as the typical espanso trigger prefix — and a yellow text caret). They are
 original artwork for this project, intentionally not derived from the espanso logo.
 
-### 6.3 Enable/disable state and search gating
+### 6.3 Enable/disable actions and why nothing is gated on them
 
-The search page checks `EspansoStateStore.AssumedEnabled` before showing anything:
+Matches are always listed, searchable and manually triggerable — even while espanso's
+automatic expansion is disabled. This is intentional and verified against espanso's source:
 
-- If **assumed disabled**: only a warning banner + "Enable espanso" + "Toggle espanso" are
-  shown — matches are not listed or searchable at all.
-- If **assumed enabled**: the searchable match list (plus "Reload match list") is shown as
-  normal. Service status/restart live on the separate **Espanso Status** page, and the
-  enable/disable toggle lives on the extension's **settings page**.
-
-This implements the "don't search while disabled; offer to enable first, then resume
-searching" goal, but it comes with an important, verified limitation:
-
-- espanso has **no public CLI/IPC query for the current enabled/disabled state**. `espanso cmd
+- The runtime toggle (`espanso cmd enable|disable|toggle`, also the Alt+Shift+X hotkey) is
+  implemented by `DisableMiddleware` (`espanso-engine/src/process/middleware/disable.rs`),
+  which **only blocks keyboard events** while disabled. A `match exec -t <trigger>` IPC
+  request is not a keyboard event and still expands normally — so manually triggering
+  matches from this extension with automatic expansion switched off is a perfectly valid
+  (and sometimes preferable) workflow.
+- `SuppressMiddleware` (`suppress.rs`) is a different mechanism: it drops `MatchesDetected`
+  events only when the active *config file* has `enable: false` — it does not react to the
+  runtime toggle.
+- espanso has **no public CLI/IPC query for the current enabled/disabled state**: `espanso cmd
   enable|disable|toggle` (`espanso/src/cli/cmd.rs`) are fire-and-forget IPC events with no
-  reply, and `espanso service status` only reports whether the process is *running*, not
-  whether expansion is *enabled*.
-- Worse, `espanso match exec -t <trigger>` gives **no feedback about being suppressed** either:
-  internally it's converted into the exact same `MatchesDetected` event a real keystroke
-  trigger produces (`espanso-engine/src/process/middleware/match_exec.rs`), and the very next
-  middleware in the pipeline, `SuppressMiddleware`
-  (`espanso-engine/src/process/middleware/suppress.rs`), silently turns it into a no-op if
-  expansion is disabled — while the CLI call still exits with code 0, because it's sent
-  asynchronously (`IPCClient::send_async` in `espanso/src/cli/match_cli/exec.rs`).
+  reply, and `espanso service status` only reports whether the process is *running*.
 
-Because of that, `Espanso/EspansoStateStore.cs` only tracks what *this extension itself* last
-set via its own enable/toggle commands and the settings toggle (defaulting to "enabled"). It
-will drift out of sync if the user disables espanso another way (tray icon, the default
-Alt+Shift+X hotkey, another tool) — in that case, use the "Toggle espanso" item on the
-disabled banner (or flip the settings toggle) to resync. A future improvement
-could poll `espanso log` for the most recent enable/disable line as a heuristic, but that
-depends on log text format and isn't a stable public API, so it was intentionally left out of
-this scaffold.
+Because the real state cannot be queried, the extension never renders an on/off switch that
+claims to know it. Instead, the **Espanso Status** page offers stateless one-shot actions —
+"Toggle/Enable/Disable automatic expansion" — and the settings page has a one-shot "Toggle
+automatic expansion now" checkbox that runs `espanso cmd toggle` once when saved checked and
+immediately resets itself (its value is never persisted).
 
 ## 7. Possible follow-ups (not implemented yet)
 

@@ -9,15 +9,19 @@ using Microsoft.CommandPalette.Extensions.Toolkit;
 namespace EspansoSearchBar.Pages;
 
 /// <summary>
-/// Small status page for the espanso background service. Shows whether the espanso daemon is
-/// currently running (checked live via "espanso service status" every time the page is opened
-/// or refreshed) plus a restart button.
+/// Small management page for espanso itself. Shows whether the espanso daemon is currently
+/// running (checked live via "espanso service status" every time the page is opened or
+/// refreshed), a restart button, and stateless Toggle/Enable/Disable actions for espanso's
+/// automatic expansion ("espanso cmd toggle|enable|disable").
 ///
 /// Exit codes come straight from espanso's source (espanso/src/exit_code.rs +
 /// cli/service/mod.rs): 0 = "espanso is running", 4 (SERVICE_NOT_RUNNING) = not running.
-/// Note this is only about the *daemon process*; whether expansion is enabled or disabled is
-/// a separate flag that espanso cannot report (see EspansoStateStore) and is controlled from
-/// the extension settings toggle instead.
+/// Note this is only about the *daemon process*; whether automatic expansion is enabled
+/// cannot be queried at all (the cmd events are one-way), which is why the toggle actions
+/// below are presented as stateless commands rather than an on/off switch. Disabling
+/// automatic expansion does NOT affect triggering matches from this extension: the runtime
+/// toggle (DisableMiddleware, espanso-engine/src/process/middleware/disable.rs) only blocks
+/// keyboard events, not "match exec" IPC requests.
 /// </summary>
 internal sealed partial class EspansoStatusPage : ListPage
 {
@@ -67,6 +71,33 @@ internal sealed partial class EspansoStatusPage : ListPage
             {
                 Title = "Refresh status",
                 Subtitle = "Re-run 'espanso service status'",
+            },
+            new ListItem(new EspansoServiceCommand(
+                "Toggle automatic expansion",
+                "\uE945", // Lightning glyph.
+                EspansoClient.ToggleAsync,
+                "espanso automatic expansion toggled.",
+                "Failed to toggle espanso"))
+            {
+                Subtitle = "espanso cmd toggle",
+            },
+            new ListItem(new EspansoServiceCommand(
+                "Enable automatic expansion",
+                "\uE73E", // Checkmark glyph.
+                EspansoClient.EnableAsync,
+                "espanso automatic expansion enabled.",
+                "Failed to enable espanso"))
+            {
+                Subtitle = "espanso cmd enable",
+            },
+            new ListItem(new EspansoServiceCommand(
+                "Disable automatic expansion",
+                "\uE894", // Clear glyph.
+                EspansoClient.DisableAsync,
+                "espanso automatic expansion disabled.",
+                "Failed to disable espanso"))
+            {
+                Subtitle = "espanso cmd disable",
             },
         };
 
