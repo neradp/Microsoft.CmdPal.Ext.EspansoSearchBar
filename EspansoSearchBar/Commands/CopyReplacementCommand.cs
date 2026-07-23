@@ -4,7 +4,6 @@
 using EspansoSearchBar.Espanso;
 using Microsoft.CommandPalette.Extensions;
 using Microsoft.CommandPalette.Extensions.Toolkit;
-using Windows.ApplicationModel.DataTransfer;
 
 namespace EspansoSearchBar.Commands;
 
@@ -26,9 +25,10 @@ internal sealed partial class CopyReplacementCommand : InvokableCommand
 
     public override ICommandResult Invoke()
     {
-        var package = new DataPackage();
-        package.SetText(_replacement);
-        Clipboard.SetContentWithOptions(package, options: null);
+        // ClipboardHelper is the SDK's own Win32-based clipboard wrapper; unlike the WinRT
+        // Clipboard API it doesn't require a UI thread/CoreWindow, which an out-of-process
+        // extension like this one doesn't have.
+        ClipboardHelper.SetText(_replacement);
 
         return CommandResult.ShowToast("Replacement copied to clipboard.");
     }

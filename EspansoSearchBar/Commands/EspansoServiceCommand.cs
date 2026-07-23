@@ -64,9 +64,10 @@ internal sealed partial class EspansoServiceCommand : InvokableCommand
                 State = result.Succeeded ? MessageState.Success : MessageState.Error,
             };
 
-            // ExtensionHost.ShowStatus only takes the message itself - there is no built-in
-            // auto-dismiss timeout, so we show it, wait a bit, then hide it ourselves.
-            ExtensionHost.ShowStatus(status);
+            // ExtensionHost.ShowStatus has no built-in auto-dismiss timeout, so we show the
+            // status, wait a bit, then hide it ourselves (same pattern the SDK's own
+            // ToastStatusMessage helper uses internally).
+            ExtensionHost.ShowStatus(status, StatusContext.Page);
             _ = AutoHideAsync(status);
 
             if (result.Succeeded)
@@ -77,7 +78,7 @@ internal sealed partial class EspansoServiceCommand : InvokableCommand
         catch (Exception ex)
         {
             var status = new StatusMessage { Message = $"{_failurePrefix}: {ex.Message}", State = MessageState.Error };
-            ExtensionHost.ShowStatus(status);
+            ExtensionHost.ShowStatus(status, StatusContext.Page);
             _ = AutoHideAsync(status);
         }
     }
