@@ -76,7 +76,7 @@ EspansoSearchBar/
 │   ├── EspansoSearchBarPage.cs         DynamicListPage: searchable match list
 │   └── EspansoStatusPage.cs            Live service status ("service status") + restart
 └── Commands/
-    ├── TriggerMatchCommand.cs          Hides palette, then runs "match exec -t <trigger>"
+    ├── TriggerMatchCommand.cs          Hides palette, types padding, runs "match exec -t <trigger>"
     ├── CopyReplacementCommand.cs       Alternate action: copy replacement to clipboard
     ├── EspansoServiceCommand.cs        Generic wrapper for service/cmd CLI subcommands
     └── RefreshMatchesCommand.cs        Forces a fresh "match list -j" (bypasses cache)
@@ -134,7 +134,21 @@ actual Rust source referenced above rather than relying on the rendered docs pag
    fire-and-forget background task with a short delay (~150 ms) so that Windows has time to
    restore keyboard focus to the previously active window/control *before* espanso injects
    text — otherwise the expansion could be typed into Command Palette itself.
-3. Any failure (most commonly: espanso's worker process not running) is reported through
+3. **Trigger compensation:** `match exec -t <trigger>` makes the espanso engine emit a
+   `TriggerCompensationEvent` (`espanso-engine/src/process/middleware/cause.rs`), which sends
+   one Backspace per trigger character (`action.rs`: `trigger.chars().count()`) before
+   injecting the replacement — espanso assumes the trigger was physically typed in the target
+   window and deletes it. Since nothing was typed when we invoke the CLI, those backspaces
+   would destroy the user's existing text. (Espanso's own search bar avoids this internally by
+   selecting matches with `trigger: None` — `search.rs` — but that path isn't reachable via
+   CLI/IPC.) The fix in `Espanso/TriggerTextTyper.cs`: after the focus hand-off, the extension
+   types *padding* — one space per trigger character — into the focused window via `SendInput`
+   (`KEYEVENTF_UNICODE`), then calls `match exec`. The backspace compensation deletes exactly
+   that padding. Spaces are used instead of the trigger text itself so that nothing the
+   extension types can ever be matched as a trigger — even on setups with
+   `win32_exclude_orphan_events: false`, where espanso's Raw Input detector *would* see
+   `SendInput`-generated keystrokes and could expand the match a second time.
+4. Any failure (most commonly: espanso's worker process not running) is reported through
    `ExtensionHost.LogMessage`, since the palette window is already hidden by the time the CLI
    call returns and there's no item left to show an inline error on.
 

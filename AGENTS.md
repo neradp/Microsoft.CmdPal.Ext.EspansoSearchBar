@@ -56,6 +56,18 @@ These were confirmed by reading espanso's Rust source, not docs:
   the literal trigger `"(none)"` and must be filtered out.
 - `espanso match exec -t <trigger>` (`exec.rs`) is **fire-and-forget** (`IPCClient::send_async`):
   exit code 0 does **not** prove the expansion happened.
+- `espanso match exec -t <trigger>` triggers **backspace compensation**: the engine emits a
+  `TriggerCompensationEvent` (`espanso-engine/src/process/middleware/cause.rs`) and sends one
+  Backspace per trigger char (`action.rs`) before injecting the replacement — it assumes the
+  trigger was physically typed. Espanso's own search bar avoids this internally
+  (`search.rs` selects matches with `trigger: None`); no CLI/IPC path exposes that. Hence
+  `Espanso/TriggerTextTyper.cs` types one space per trigger char (Unicode scalar count) via
+  `SendInput` before calling `match exec` — spaces, not the trigger itself, so the typed text
+  can never re-trigger a match regardless of espanso's detector configuration.
+- Espanso's Windows detector (`espanso-detect/src/win32`) uses Raw Input and, by default
+  (`win32_exclude_orphan_events: true`), **drops all keyboard events with a NULL `hDevice`** —
+  i.e. anything generated via `SendInput`, from any process. So text typed programmatically by
+  the extension is never matched/expanded by espanso, while target apps still receive it.
 - There is **no CLI/IPC query for the current enabled/disabled state**. `espanso cmd
   enable|disable|toggle` (`cli/cmd.rs`) are one-way events; `espanso service status` only says
   whether the worker *process* runs.
