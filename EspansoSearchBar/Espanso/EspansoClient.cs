@@ -2,8 +2,20 @@
 // Licensed under the MIT license. See the LICENSE file in the project root for more information.
 
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace EspansoSearchBar.Espanso;
+
+/// <summary>
+/// Source-generated System.Text.Json context for espanso's CLI JSON output. Using the source
+/// generator (instead of reflection-based <see cref="JsonSerializer"/> overloads) makes JSON
+/// deserialization trim- and AOT-safe: Release builds publish with PublishTrimmed=true, and
+/// the reflection-based overloads emit IL2026/IL3050 warnings because the trimmer may remove
+/// the metadata they need at runtime.
+/// </summary>
+[JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
+[JsonSerializable(typeof(List<EspansoMatch>))]
+internal sealed partial class EspansoJsonContext : JsonSerializerContext;
 
 /// <summary>
 /// High level espanso operations used by this extension. All CLI subcommands used here were
@@ -17,8 +29,6 @@ namespace EspansoSearchBar.Espanso;
 /// </summary>
 public sealed class EspansoClient
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-
     /// <summary>Short in-memory cache so re-opening the palette feels instant; refreshed on demand.</summary>
     private List<EspansoMatch>? _cachedMatches;
     private DateTimeOffset _cachedAt;
@@ -42,7 +52,7 @@ public sealed class EspansoClient
             throw new EspansoCliException($"'espanso match list -j' failed: {result.StandardError.Trim()}");
         }
 
-        var matches = JsonSerializer.Deserialize<List<EspansoMatch>>(result.StandardOutput, JsonOptions) ?? [];
+        var matches = JsonSerializer.Deserialize(result.StandardOutput, EspansoJsonContext.Default.ListEspansoMatch) ?? [];
 
         // Matches with no textual trigger (regex-only causes) are reported by espanso as the
         // literal trigger "(none)" - they cannot be launched via "match exec -t", so we hide them.
