@@ -289,3 +289,11 @@ this scaffold.
 - Reading espanso's config directly (instead of only `match list -j`) to group matches by the
   `.yml` file they came from.
 - A settings page to configure the focus hand-off delay, for users on slower machines.
+
+## Credits
+
+This project was created with the help of AI.
+
+Co-authored-by: [GitHub Copilot](https://github.com/features/copilot) — design, implementation,
+CI setup and documentation were developed collaboratively with GitHub Copilot CLI, with all
+espanso and PowerToys Command Palette APIs verified against their upstream sources.
