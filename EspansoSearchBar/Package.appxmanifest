@@ -10,14 +10,15 @@
 
   <Identity
     Name="EspansoSearchBar"
-    Publisher="CN=EspansoSearchBar, OID.2.25.311729368913984317654407730594956997722=1"
+    Publisher="CN=EspansoSearchBar"
     Version="0.0.1.0" />
-  <!-- The OID.2.25.311729368913984317654407730594956997722=1 suffix marks this package as
-       part of the "unsigned namespace", which is required for installing the unsigned .msix
-       produced by CI via "Add-AppxPackage -AllowUnsigned" on Windows 11 (error 0x80073D2C
-       otherwise). See https://learn.microsoft.com/windows/msix/package/unsigned-package.
-       When you're ready to sign/publish the extension properly, replace the whole Publisher
-       value with your own code-signing identity instead. See:
+  <!-- Publisher must exactly match the Subject of the certificate the .msix is signed with.
+       CI (.github/workflows/build.yml) generates a self-signed "CN=EspansoSearchBar"
+       certificate, signs the package with it, and publishes the .cer alongside the .msix so
+       it can be imported into the "Trusted People" store before installing. Unsigned MSIX
+       packages are not an option here: this extension is an exe activated as a COM server,
+       and Windows rejects unsigned packages with executable activations (0x80073D2B).
+       When you're ready to publish properly, sign with a real code-signing identity. See:
        https://learn.microsoft.com/windows/powertoys/command-palette/publish-extension -->
 
   <Properties>

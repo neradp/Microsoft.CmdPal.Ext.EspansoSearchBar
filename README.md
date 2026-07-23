@@ -140,8 +140,12 @@ This repo includes `.github/workflows/build.yml`, which:
 2. Restores and builds the solution with `msbuild` (via `microsoft/setup-msbuild`) for `x64`
    only (ARM64 was dropped to keep the CI matrix minimal; re-add it later if Arm support is
    needed).
-3. Uploads the build output (including the generated `.msix`/`.appx` package under
-   `AppxPackages\`) as a downloadable workflow artifact.
+3. Generates a throwaway **self-signed certificate** (`CN=EspansoSearchBar`, matching the
+   manifest Publisher) and signs the MSIX with it. Signing is mandatory: Windows refuses to
+   install *unsigned* packages that contain executable activations (error `0x80073D2B`),
+   and this extension is an exe activated as an out-of-process COM server.
+4. Uploads two artifacts: `EspansoSearchBar-msix-x64` (the signed `.msix` + the public
+   `EspansoSearchBar.cer`) and `EspansoSearchBar-x64` (the raw build output).
 
 To use it:
 
@@ -149,17 +153,33 @@ To use it:
    free; private repos get a limited free monthly quota too).
 2. The workflow runs automatically on push/PR to `main`, or manually via the "Run workflow"
    button (Actions tab → "Build EspansoSearchBar" → "Run workflow").
-3. Once green, open the run and download the `EspansoSearchBar-x64` artifact.
-4. On an actual Windows 11 PC with [Developer Mode enabled](https://learn.microsoft.com/windows/apps/get-started/enable-your-device-for-development)
-   and PowerToys + espanso installed, install the extracted `.msix` (double-click it, or
-   `Add-AppxPackage -Path .\EspansoSearchBar_....msix` in PowerShell) and Command Palette will
-   pick it up — no Visual Studio needed on that machine either.
+3. Once green, open the run and download the `EspansoSearchBar-msix-x64` artifact; extract it.
+4. On the target Windows 11 PC (with PowerToys + espanso installed), first trust the CI
+   signing certificate — **one-time step, requires an elevated (admin) PowerShell**:
+
+   ```powershell
+   Import-Certificate -FilePath .\EspansoSearchBar.cer -CertStoreLocation Cert:\LocalMachine\TrustedPeople
+   ```
+
+5. Then install the package (regular, non-elevated PowerShell is fine):
+
+   ```powershell
+   Add-AppxPackage -Path .\EspansoSearchBar_0.0.1.0_x64.msix
+   ```
+
+   Command Palette will pick it up (run **Reload Command Palette extensions** inside the
+   palette if it doesn't appear immediately) — no Visual Studio needed on that machine either.
+
+> Because each CI run generates a *new* self-signed certificate, re-import the fresh `.cer`
+> whenever you install a package from a newer run. For real distribution, replace this with a
+> proper code-signing certificate (and remove the cert-generation step from the workflow).
 
 This is genuinely a full cloud build: the actual compiler, linker, WinRT metadata generation
 and MSIX packaging all run on GitHub's hosted Windows VM, not on your machine. What you can't
 avoid is that *some* Windows 11 machine is eventually needed to *run/deploy* the extension
 (Command Palette itself, and the WinRT COM activation, only exist on Windows) — but that
-machine doesn't need Visual Studio installed, only Developer Mode + the built package.
+machine doesn't need Visual Studio installed, only the built package + the imported
+certificate.
 
 > Other "no local install" options that do **not** work here: browser-only cloud IDEs like
 > GitHub Codespaces or Gitpod default to Linux containers, and this project targets
