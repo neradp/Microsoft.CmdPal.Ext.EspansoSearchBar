@@ -10,15 +10,19 @@
 
   <Identity
     Name="EspansoSearchBar"
-    Publisher="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    Publisher="CN=EspansoSearchBar, OID.2.25.311729368913984317654407730594956997722=1"
     Version="0.0.1.0" />
-  <!-- When you're ready to publish your extension, change Publisher= to match your own
-       code-signing identity. See:
+  <!-- The OID.2.25.311729368913984317654407730594956997722=1 suffix marks this package as
+       part of the "unsigned namespace", which is required for installing the unsigned .msix
+       produced by CI via "Add-AppxPackage -AllowUnsigned" on Windows 11 (error 0x80073D2C
+       otherwise). See https://learn.microsoft.com/windows/msix/package/unsigned-package.
+       When you're ready to sign/publish the extension properly, replace the whole Publisher
+       value with your own code-signing identity instead. See:
        https://learn.microsoft.com/windows/powertoys/command-palette/publish-extension -->
 
   <Properties>
     <DisplayName>Espanso Search Bar</DisplayName>
-    <PublisherDisplayName>A Lone Developer</PublisherDisplayName>
+    <PublisherDisplayName>EspansoSearchBar project</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 
