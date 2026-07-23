@@ -32,7 +32,48 @@ public sealed class EspansoMatch
     /// <summary>Primary trigger used to invoke this match ("espanso match exec -t &lt;trigger&gt;").</summary>
     public string PrimaryTrigger => Triggers.Count > 0 ? Triggers[0] : string.Empty;
 
-    /// <summary>Human friendly text shown as the list item subtitle.</summary>
-    public string DisplayReplacement =>
-        Replace.Length > 140 ? string.Concat(Replace.AsSpan(0, 140), "…") : Replace;
+    /// <summary>
+    /// Human friendly single-line preview of the replacement, shown in the list UI.
+    /// Espanso replacements are frequently multi-line (signatures, code snippets…) and can be
+    /// arbitrarily long, so all whitespace runs (including newlines) are collapsed to single
+    /// spaces and the result is truncated. Espanso's own search bar renders the same kind of
+    /// flattened preview.
+    /// </summary>
+    public string DisplayReplacement
+    {
+        get
+        {
+            var collapsed = CollapseWhitespace(Replace);
+            return collapsed.Length > MaxPreviewLength
+                ? string.Concat(collapsed.AsSpan(0, MaxPreviewLength), "…")
+                : collapsed;
+        }
+    }
+
+    private const int MaxPreviewLength = 60;
+
+    private static string CollapseWhitespace(string text)
+    {
+        var builder = new System.Text.StringBuilder(text.Length);
+        var previousWasWhitespace = false;
+        foreach (var ch in text.Trim())
+        {
+            if (char.IsWhiteSpace(ch))
+            {
+                if (!previousWasWhitespace)
+                {
+                    builder.Append(' ');
+                }
+
+                previousWasWhitespace = true;
+            }
+            else
+            {
+                builder.Append(ch);
+                previousWasWhitespace = false;
+            }
+        }
+
+        return builder.ToString();
+    }
 }

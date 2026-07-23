@@ -114,11 +114,17 @@ internal sealed partial class EspansoSearchBarPage : DynamicListPage, IDisposabl
                 continue;
             }
 
+            // Mirror espanso's own search bar layout: the content (label if present,
+            // otherwise the replacement preview) is the primary text, and the trigger is
+            // shown as a tag on the right. Multi-line/long replacements are flattened and
+            // truncated by DisplayReplacement.
+            var hasLabel = match.Label is { Length: > 0 };
             yield return new ListItem(new TriggerMatchCommand(match))
             {
-                Title = match.PrimaryTrigger,
-                Subtitle = match.Label is { Length: > 0 } label ? $"{label} — {match.DisplayReplacement}" : match.DisplayReplacement,
+                Title = hasLabel ? match.Label! : match.DisplayReplacement,
+                Subtitle = hasLabel ? match.DisplayReplacement : string.Empty,
                 Icon = new IconInfo("\uE97C"), // "TextField"-like glyph representing a snippet.
+                Tags = match.Triggers.Where(t => t.Length > 0).Select(ITag (t) => new Tag(t)).ToArray(),
                 MoreCommands =
                 [
                     new CommandContextItem(new CopyReplacementCommand(match)),
