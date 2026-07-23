@@ -1,0 +1,31 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EspansoSearchBar", "EspansoSearchBar\EspansoSearchBar.csproj", "{111EF2F3-1419-42C5-B523-2B13919A247D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|ARM64 = Debug|ARM64
+		Release|x64 = Release|x64
+		Release|ARM64 = Release|ARM64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{111EF2F3-1419-42C5-B523-2B13919A247D}.Debug|x64.ActiveCfg = Debug|x64
+		{111EF2F3-1419-42C5-B523-2B13919A247D}.Debug|x64.Build.0 = Debug|x64
+		{111EF2F3-1419-42C5-B523-2B13919A247D}.Debug|ARM64.ActiveCfg = Debug|ARM64
+		{111EF2F3-1419-42C5-B523-2B13919A247D}.Debug|ARM64.Build.0 = Debug|ARM64
+		{111EF2F3-1419-42C5-B523-2B13919A247D}.Release|x64.ActiveCfg = Release|x64
+		{111EF2F3-1419-42C5-B523-2B13919A247D}.Release|x64.Build.0 = Release|x64
+		{111EF2F3-1419-42C5-B523-2B13919A247D}.Release|ARM64.ActiveCfg = Release|ARM64
+		{111EF2F3-1419-42C5-B523-2B13919A247D}.Release|ARM64.Build.0 = Release|ARM64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(SolutionGuid) = postSolution
+		SolutionGuid = {341D206E-E6F8-4D4B-8EFB-1BDA319D437F}
+	EndGlobalSection
+EndGlobal

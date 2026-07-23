@@ -1,0 +1,54 @@
+name: Build EspansoSearchBar
+
+# Builds the Command Palette extension entirely in the cloud, on GitHub's Windows runners.
+# GitHub's "windows-latest" runners already come with Visual Studio Build Tools, the .NET
+# SDK and the Windows 11 SDK preinstalled - see the runner image manifest:
+# https://github.com/actions/runner-images/blob/main/images/windows/Windows2022-Readme.md
+# so no local Visual Studio installation is required on your own machine to get a build.
+#
+# This does NOT deploy/install the MSIX on your machine - it only proves the code builds and
+# produces the package artifacts, which you can download from the workflow run and install on
+# a Windows 11 machine with Developer Mode enabled (Add-AppxPackage), or open in Visual Studio
+# to Deploy/debug interactively.
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    strategy:
+      matrix:
+        platform: [x64, ARM64]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+          # Preview SDKs (the project uses a preview Windows SDK package version) need this.
+          dotnet-quality: "preview"
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Restore NuGet packages
+        run: msbuild EspansoSearchBar.sln /t:Restore /p:Configuration=Release /p:Platform=${{ matrix.platform }}
+
+      - name: Build
+        run: msbuild EspansoSearchBar.sln /m /p:Configuration=Release /p:Platform=${{ matrix.platform }} /p:GenerateAppxPackageOnBuild=true /p:AppxPackageDir=AppxPackages\
+
+      - name: Upload build output
+        uses: actions/upload-artifact@v4
+        with:
+          name: EspansoSearchBar-${{ matrix.platform }}
+          path: |
+            EspansoSearchBar/bin/${{ matrix.platform }}/Release/**
+          if-no-files-found: warn
