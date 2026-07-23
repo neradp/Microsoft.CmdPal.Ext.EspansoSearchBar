@@ -63,6 +63,16 @@ These were confirmed by reading espanso's Rust source, not docs:
   `SuppressMiddleware` (`espanso-engine/src/process/middleware/suppress.rs`) with no error
   signal — hence `Espanso/EspansoStateStore.cs` tracks a *best-effort assumed* state that can
   go stale if espanso is toggled externally (tray icon, Alt+Shift+X).
+- The Windows installer (`scripts/resources/windows/setupscript.iss`) never ships an
+  `espanso.exe`: the real binary is **`espansod.exe`**, and `espanso.cmd` is a one-line shim
+  (`@"%~dp0espansod.exe" %*`). Install dir is Inno `{autopf}\Espanso`
+  (`%LOCALAPPDATA%\Programs\Espanso` per-user, `%ProgramFiles%\Espanso` admin).
+- `espanso env-path register` writes the install dir only to the **user PATH in the registry**
+  (`HKCU\Environment\Path`, `espanso/src/path/win.rs`). An MSIX-activated COM server does not
+  inherit that, so `Espanso/EspansoCliRunner.cs` reads `HKCU\Environment` itself and probes
+  the default install folders, preferring `espansod.exe`.
+- `espanso service status` exit codes (`espanso/src/exit_code.rs` + `cli/service/mod.rs`):
+  0 = running, 4 = `SERVICE_NOT_RUNNING`.
 
 ## Layout quick reference
 
@@ -70,8 +80,10 @@ These were confirmed by reading espanso's Rust source, not docs:
 EspansoSearchBar/
 ├── Program.cs                       COM server bootstrap (mirrors the official template)
 ├── EspansoSearchBarExtension.cs     IExtension; GUID must match Package.appxmanifest
-├── EspansoSearchBarCommandsProvider.cs
+├── EspansoSearchBarCommandsProvider.cs  Two top-level items + Settings wiring
+├── SettingsManager.cs               Settings: espanso enabled toggle + executable path
 ├── Espanso/                         CLI integration (runner, client, JSON model, state store)
-├── Pages/EspansoSearchBarPage.cs    DynamicListPage: search + gating + management items
+├── Pages/EspansoSearchBarPage.cs    DynamicListPage: search + disabled gating + reload item
+├── Pages/EspansoStatusPage.cs       Live 'service status' check + restart
 └── Commands/                        Trigger / copy / service / refresh commands
 ```

@@ -8,8 +8,10 @@ Windows power users already use for everything else.
 
 ## Goals
 
-- **List espanso matches**, and some commands for espanso itself (restart service,
-  enable/disable/toggle expansion, reload the match list).
+- **List espanso matches** in a searchable page; espanso self-management lives on its own
+  surfaces: a live **Espanso Status** page (service running check + restart) and the
+  extension **settings page** (enable/disable toggle, executable path override). The search
+  page itself keeps only the "Reload match list" helper.
 - **Let the user execute ("trigger") the selected match**:
   - Hide the Command Palette window first, so focus returns to whatever window/cursor
     the user was working in — espanso injects text into the currently focused control.
@@ -29,7 +31,7 @@ Windows power users already use for everything else.
                                                                             │ Process.Start
                                                                             ▼
                                                               ┌───────────────────────────┐
-                                                              │  espanso.exe (CLI)         │
+                                                              │  espansod.exe (CLI)        │
                                                               │  - match list -j           │
                                                               │  - match exec -t <trig>    │
                                                               │  - service status/restart  │
@@ -62,15 +64,17 @@ EspansoSearchBar.sln
 EspansoSearchBar/
 ├── Program.cs                          Process entry point / COM server bootstrap
 ├── EspansoSearchBarExtension.cs        IExtension implementation (COM root object)
-├── EspansoSearchBarCommandsProvider.cs Top-level command ("Espanso Search Bar")
+├── EspansoSearchBarCommandsProvider.cs Top-level commands ("Espanso Search Bar", "Espanso Status")
+├── SettingsManager.cs                  Extension settings: enable toggle + executable path
 ├── Package.appxmanifest                MSIX manifest: COM registration + CmdPalProvider
 ├── app.manifest                        Win32 app manifest (DPI awareness, OS compat)
 ├── Espanso/
 │   ├── EspansoMatch.cs                 JSON model for "espanso match list -j" entries
-│   ├── EspansoCliRunner.cs             Low-level hidden-process runner for espanso.exe
+│   ├── EspansoCliRunner.cs             Hidden-process runner + espansod.exe discovery
 │   └── EspansoClient.cs                High-level espanso operations used by the UI
 ├── Pages/
-│   └── EspansoSearchBarPage.cs         DynamicListPage: searchable match list + actions
+│   ├── EspansoSearchBarPage.cs         DynamicListPage: searchable match list
+│   └── EspansoStatusPage.cs            Live service status ("service status") + restart
 └── Commands/
     ├── TriggerMatchCommand.cs          Hides palette, then runs "match exec -t <trigger>"
     ├── CopyReplacementCommand.cs       Alternate action: copy replacement to clipboard
@@ -96,6 +100,22 @@ shape used in `Espanso/EspansoClient.cs` are accurate:
 | `espanso service status` | `espanso/src/cli/service/mod.rs` | Reports whether the background service is running. |
 | `espanso service restart` / `start` / `stop` | `espanso/src/cli/service/mod.rs` | Manage the background service. |
 | `espanso cmd enable` / `disable` / `toggle` | `espanso/src/cli/cmd.rs` | Pause/resume text expansion globally, without stopping the service. |
+
+### Finding the espanso executable
+
+The official Windows installer (`scripts/resources/windows/setupscript.iss` in the espanso
+repository) never installs an `espanso.exe`: the real binary is **`espansod.exe`**, and
+`espanso.cmd` is just a one-line shim (`@"%~dp0espansod.exe" %*`). On top of that,
+`espanso env-path register` writes the install directory only into the *user* PATH in the
+registry (`HKCU\Environment\Path`, see `espanso/src/path/win.rs`) — which an MSIX-activated
+COM server like this extension does not inherit. `Espanso/EspansoCliRunner.cs` therefore
+resolves the executable itself, in order:
+
+1. the user-configured path from the extension settings (file or folder),
+2. every directory on the process PATH **and** the user PATH read from `HKCU\Environment`,
+3. the installer defaults `%LOCALAPPDATA%\Programs\Espanso` and `%ProgramFiles%\Espanso`,
+
+preferring `espansod.exe` over `espanso.exe` in each location.
 
 Official CLI docs (human-readable overview of the same commands): https://espanso.org/docs/cli/
 
@@ -229,11 +249,13 @@ https://learn.microsoft.com/windows/powertoys/command-palette/publish-extension)
 
 ### 6.3 Enable/disable state and search gating
 
-The page checks `EspansoStateStore.AssumedEnabled` before showing anything:
+The search page checks `EspansoStateStore.AssumedEnabled` before showing anything:
 
 - If **assumed disabled**: only a warning banner + "Enable espanso" + "Toggle espanso" are
   shown — matches are not listed or searchable at all.
-- If **assumed enabled**: management commands + the searchable match list are shown as normal.
+- If **assumed enabled**: the searchable match list (plus "Reload match list") is shown as
+  normal. Service status/restart live on the separate **Espanso Status** page, and the
+  enable/disable toggle lives on the extension's **settings page**.
 
 This implements the "don't search while disabled; offer to enable first, then resume
 searching" goal, but it comes with an important, verified limitation:
@@ -251,9 +273,10 @@ searching" goal, but it comes with an important, verified limitation:
   asynchronously (`IPCClient::send_async` in `espanso/src/cli/match_cli/exec.rs`).
 
 Because of that, `Espanso/EspansoStateStore.cs` only tracks what *this extension itself* last
-set via its own Enable/Disable/Toggle commands (defaulting to "enabled"). It will drift out of
-sync if the user disables espanso another way (tray icon, the default Alt+Shift+X hotkey,
-another tool) — in that case, use the "Toggle espanso" item to resync. A future improvement
+set via its own enable/toggle commands and the settings toggle (defaulting to "enabled"). It
+will drift out of sync if the user disables espanso another way (tray icon, the default
+Alt+Shift+X hotkey, another tool) — in that case, use the "Toggle espanso" item on the
+disabled banner (or flip the settings toggle) to resync. A future improvement
 could poll `espanso log` for the most recent enable/disable line as a heuristic, but that
 depends on log text format and isn't a stable public API, so it was intentionally left out of
 this scaffold.

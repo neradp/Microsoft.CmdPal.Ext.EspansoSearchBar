@@ -9,10 +9,12 @@ using Microsoft.CommandPalette.Extensions.Toolkit;
 namespace EspansoSearchBar.Pages;
 
 /// <summary>
-/// Main page of the extension: a searchable list of every espanso match, plus a handful of
-/// espanso "self management" commands (status/restart/enable/disable/toggle) pinned to the
-/// top, so both the match list and the espanso CLI management surface are reachable from one
-/// place.
+/// Main page of the extension: a searchable list of every espanso match. Espanso
+/// "self management" moved out of this page - the service status/restart live on
+/// <see cref="EspansoStatusPage"/> and the enable/disable toggle lives on the extension's
+/// settings page (<see cref="SettingsManager"/>) - so the only non-match item here is
+/// "Reload match list". The one exception is the disabled state: when espanso expansion is
+/// (believed to be) off, the match list is replaced by a banner offering to re-enable it.
 ///
 /// This is a <see cref="DynamicListPage"/> (not a plain ListPage) because filtering happens
 /// as the user types, and reloading the (possibly large) match list on every keystroke would
@@ -22,13 +24,15 @@ namespace EspansoSearchBar.Pages;
 internal sealed partial class EspansoSearchBarPage : DynamicListPage, IDisposable
 {
     private readonly EspansoClient _client = new();
+    private readonly SettingsManager _settingsManager;
     private readonly CancellationTokenSource _disposalCts = new();
 
     private IReadOnlyList<EspansoMatch> _lastLoadedMatches = [];
     private string? _lastLoadError;
 
-    public EspansoSearchBarPage()
+    public EspansoSearchBarPage(SettingsManager settingsManager)
     {
+        _settingsManager = settingsManager;
         Icon = IconHelpers.FromRelativePath("Assets\\StoreLogo.png");
         Title = "Espanso Search Bar";
         Name = "Search";
@@ -59,11 +63,11 @@ internal sealed partial class EspansoSearchBarPage : DynamicListPage, IDisposabl
             return items.ToArray();
         }
 
-        // Only show the espanso management commands when the query is empty or explicitly
-        // targets them, so they don't crowd out match results while searching for a trigger.
+        // Only show the reload item when the query is empty, so it doesn't crowd out match
+        // results while searching for a trigger.
         if (query.Length == 0)
         {
-            items.AddRange(BuildManagementItems());
+            items.Add(BuildReloadItem());
         }
 
         items.AddRange(BuildMatchItems(query));
@@ -130,44 +134,17 @@ internal sealed partial class EspansoSearchBarPage : DynamicListPage, IDisposabl
             || (match.Label?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false);
     }
 
-    private IEnumerable<IListItem> BuildManagementItems()
+    private IListItem BuildReloadItem() => new ListItem(new RefreshMatchesCommand(this))
     {
-        yield return new ListItem(new EspansoServiceCommand(
-            "Restart espanso",
-            "\uE777", // Refresh glyph.
-            EspansoClient.RestartAsync,
-            "espanso restarted successfully.",
-            "Failed to restart espanso"))
-        {
-            Subtitle = "espanso service restart",
-        };
+        Title = "Reload match list",
+        Subtitle = "Re-run 'espanso match list -j' (e.g. after editing your config)",
+        Icon = new IconInfo("\uE72C"), // Sync glyph.
+    };
 
-        yield return new ListItem(BuildEnableCommand())
-        {
-            Subtitle = "espanso cmd enable",
-        };
-
-        yield return new ListItem(BuildDisableCommand())
-        {
-            Subtitle = "espanso cmd disable",
-        };
-
-        yield return new ListItem(BuildToggleCommand())
-        {
-            Subtitle = "espanso cmd toggle",
-        };
-
-        yield return new ListItem(new RefreshMatchesCommand(this))
-        {
-            Title = "Reload match list",
-            Subtitle = "Re-run 'espanso match list -j' (e.g. after editing your config)",
-            Icon = new IconInfo("\uE72C"), // Sync glyph.
-        };
-    }
-
-    // These three share the same "update our best-effort state assumption, then refresh the
-    // list" behavior, so both the normal management list and the "disabled" banner view
-    // (GetItems) reuse the exact same command instances/behavior.
+    // The enable/toggle commands are only offered from the "espanso is disabled" banner view;
+    // regular enable/disable management lives on the extension's settings page instead. Both
+    // update the best-effort state assumption AND the persisted settings toggle so the two
+    // surfaces stay consistent.
     private EspansoServiceCommand BuildEnableCommand() => new(
         "Enable espanso",
         "\uE73E", // Checkmark glyph.
@@ -177,18 +154,7 @@ internal sealed partial class EspansoSearchBarPage : DynamicListPage, IDisposabl
         onSuccess: () =>
         {
             EspansoStateStore.SetAssumedEnabled(true);
-            RaiseItemsChanged();
-        });
-
-    private EspansoServiceCommand BuildDisableCommand() => new(
-        "Disable espanso",
-        "\uE711", // Cancel glyph.
-        EspansoClient.DisableAsync,
-        "espanso expansions disabled.",
-        "Failed to disable espanso",
-        onSuccess: () =>
-        {
-            EspansoStateStore.SetAssumedEnabled(false);
+            _settingsManager.SyncEnabledState(true);
             RaiseItemsChanged();
         });
 
@@ -200,7 +166,9 @@ internal sealed partial class EspansoSearchBarPage : DynamicListPage, IDisposabl
         "Failed to toggle espanso",
         onSuccess: () =>
         {
-            EspansoStateStore.SetAssumedEnabled(!EspansoStateStore.AssumedEnabled);
+            var newAssumption = !EspansoStateStore.AssumedEnabled;
+            EspansoStateStore.SetAssumedEnabled(newAssumption);
+            _settingsManager.SyncEnabledState(newAssumption);
             RaiseItemsChanged();
         });
 

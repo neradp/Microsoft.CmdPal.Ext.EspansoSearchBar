@@ -8,18 +8,26 @@ using Microsoft.CommandPalette.Extensions.Toolkit;
 namespace EspansoSearchBar;
 
 /// <summary>
-/// Top-level entry point Command Palette shows for this extension. Exposes a single command
-/// ("Espanso Search Bar") that opens <see cref="EspansoSearchBarPage"/>.
+/// Top-level entry point Command Palette shows for this extension. Exposes two commands:
+/// "Espanso Search Bar" (<see cref="EspansoSearchBarPage"/>, the searchable match list) and
+/// "Espanso Status" (<see cref="EspansoStatusPage"/>, live service status + restart), plus a
+/// standard settings page (<see cref="SettingsManager"/>) with the enable/disable toggle and
+/// the executable path override.
 /// </summary>
 public partial class EspansoSearchBarCommandsProvider : CommandProvider
 {
-    private readonly EspansoSearchBarPage _page = new();
+    private readonly SettingsManager _settingsManager = new();
+    private readonly EspansoSearchBarPage _page;
+    private readonly EspansoStatusPage _statusPage = new();
     private readonly ICommandItem[] _commands;
 
     public EspansoSearchBarCommandsProvider()
     {
         DisplayName = "Espanso Search Bar";
         Icon = IconHelpers.FromRelativePath("Assets\\StoreLogo.png");
+        Settings = _settingsManager.Settings;
+
+        _page = new EspansoSearchBarPage(_settingsManager);
 
         _commands =
         [
@@ -27,6 +35,11 @@ public partial class EspansoSearchBarCommandsProvider : CommandProvider
             {
                 Title = DisplayName,
                 Subtitle = "Search and trigger your espanso matches",
+            },
+            new CommandItem(_statusPage)
+            {
+                Title = "Espanso Status",
+                Subtitle = "Check whether the espanso service is running, restart it if needed",
             },
         ];
     }
