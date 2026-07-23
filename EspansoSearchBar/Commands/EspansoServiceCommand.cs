@@ -58,13 +58,16 @@ internal sealed partial class EspansoServiceCommand : InvokableCommand
                 ? _successMessage
                 : $"{_failurePrefix}: {result.StandardError.Trim()}";
 
-            ExtensionHost.ShowStatus(
-                new StatusMessage
-                {
-                    Message = message,
-                    State = result.Succeeded ? MessageState.Success : MessageState.Error,
-                },
-                TimeSpan.FromSeconds(4));
+            var status = new StatusMessage
+            {
+                Message = message,
+                State = result.Succeeded ? MessageState.Success : MessageState.Error,
+            };
+
+            // ExtensionHost.ShowStatus only takes the message itself - there is no built-in
+            // auto-dismiss timeout, so we show it, wait a bit, then hide it ourselves.
+            ExtensionHost.ShowStatus(status);
+            _ = AutoHideAsync(status);
 
             if (result.Succeeded)
             {
@@ -73,9 +76,15 @@ internal sealed partial class EspansoServiceCommand : InvokableCommand
         }
         catch (Exception ex)
         {
-            ExtensionHost.ShowStatus(
-                new StatusMessage { Message = $"{_failurePrefix}: {ex.Message}", State = MessageState.Error },
-                TimeSpan.FromSeconds(4));
+            var status = new StatusMessage { Message = $"{_failurePrefix}: {ex.Message}", State = MessageState.Error };
+            ExtensionHost.ShowStatus(status);
+            _ = AutoHideAsync(status);
         }
+    }
+
+    private static async Task AutoHideAsync(StatusMessage status)
+    {
+        await Task.Delay(TimeSpan.FromSeconds(4)).ConfigureAwait(false);
+        ExtensionHost.HideStatus(status);
     }
 }
