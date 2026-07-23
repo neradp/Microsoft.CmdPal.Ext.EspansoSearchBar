@@ -11,7 +11,7 @@ namespace EspansoSearchBar.Commands;
 /// Invokes a single espanso match by trigger, e.g. equivalent to running
 /// "espanso match exec -t :sig" from a terminal.
 ///
-/// The tricky part of this command (requirement "2a" from the design notes) is that espanso
+/// The tricky part of this command is that espanso
 /// always injects text into whatever window currently has keyboard focus. If we ran the CLI
 /// call *before* Command Palette's own window has fully hidden and handed focus back to the
 /// window the user was previously working in, the expansion could be typed into Command

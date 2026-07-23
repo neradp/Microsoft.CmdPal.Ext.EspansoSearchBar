@@ -6,14 +6,18 @@ extension, so that browsing, filtering and triggering
 [espanso](https://espanso.org) text-expansion matches happens inside the same launcher
 Windows power users already use for everything else.
 
-## 1. Requirements (from `AGENTS.md`)
+## Goals
 
-1. List espanso matches, and some commands for espanso itself.
-2. Let the user execute ("trigger") the selected match.
-   - a. Hide the Command Palette window first, so focus returns to whatever window/cursor
-     the user was working in — espanso injects text into the currently focused control.
-   - b. Trigger the match from the command line (`espanso match exec -t <trigger>`), i.e.
-     don't reimplement espanso's expansion logic — just drive the real espanso CLI/IPC.
+- **List espanso matches**, and some commands for espanso itself (restart service,
+  enable/disable/toggle expansion, reload the match list).
+- **Let the user execute ("trigger") the selected match**:
+  - Hide the Command Palette window first, so focus returns to whatever window/cursor
+    the user was working in — espanso injects text into the currently focused control.
+  - Trigger the match from the command line (`espanso match exec -t <trigger>`), i.e.
+    don't reimplement espanso's expansion logic — just drive the real espanso CLI/IPC.
+- **If espanso expansion is (believed to be) disabled, don't search matches at all** — offer
+  only to enable it first, then resume searching (see "Enable/disable state and search
+  gating" below).
 
 ## 2. How it works (architecture)
 
@@ -46,8 +50,8 @@ in the official docs:
 https://learn.microsoft.com/windows/powertoys/command-palette/extensibility-overview
 
 This extension never talks to espanso's IPC socket directly. Instead it always shells out to
-the real `espanso` executable, exactly as requested in `AGENTS.md` ("triger the match from
-command line"). This keeps the extension small, and guarantees behavior stays in sync with
+the real `espanso` executable (see Goals above). This keeps the extension small, and guarantees
+behavior stays in sync with
 whatever espanso version the user has installed, since we're using its public, documented CLI:
 https://espanso.org/docs/cli/
 
@@ -99,14 +103,13 @@ Note: the espanso website's CLI page is client-side rendered and returned no sta
 fetched directly, so the exact JSON schema and subcommand names were confirmed by reading the
 actual Rust source referenced above rather than relying on the rendered docs page alone.
 
-## 5. Design decisions for requirement 2a/2b (hide-then-trigger)
+## 5. Design decisions: hide the palette first, then trigger via the CLI
 
 `Commands/TriggerMatchCommand.cs` implements the focus hand-off explicitly:
 
 1. `Invoke()` returns `CommandResult.Hide()` immediately. `Hide` (as opposed to `Dismiss`)
-   hides the Command Palette window but keeps its page/search state, matching the "hide the
-   command palette window to focus [the] latest window" requirement without discarding the
-   current search.
+   hides the Command Palette window but keeps its page/search state — focus returns to the
+   window the user was previously working in, without discarding the current search.
 2. Actually calling `espanso match exec -t <trigger>` happens slightly later, on a
    fire-and-forget background task with a short delay (~150 ms) so that Windows has time to
    restore keyboard focus to the previously active window/control *before* espanso injects
@@ -204,7 +207,7 @@ Placeholder assets (`Assets/*.png`) are included so the project deploys out of t
 them with real icons before publishing (see
 https://learn.microsoft.com/windows/powertoys/command-palette/publish-extension).
 
-## 6.3 Enable/disable state and search gating
+### 6.3 Enable/disable state and search gating
 
 The page checks `EspansoStateStore.AssumedEnabled` before showing anything:
 
@@ -212,9 +215,8 @@ The page checks `EspansoStateStore.AssumedEnabled` before showing anything:
   shown — matches are not listed or searchable at all.
 - If **assumed enabled**: management commands + the searchable match list are shown as normal.
 
-This was a deliberate ask ("ak je disabled tak jednoducho to nebude vyhladavat, ponukne iba
-zapnut, a az potom vyhlada"/"if disabled, don't search, just offer to enable, then search
-after"), but it comes with an important, verified limitation:
+This implements the "don't search while disabled; offer to enable first, then resume
+searching" goal, but it comes with an important, verified limitation:
 
 - espanso has **no public CLI/IPC query for the current enabled/disabled state**. `espanso cmd
   enable|disable|toggle` (`espanso/src/cli/cmd.rs`) are fire-and-forget IPC events with no

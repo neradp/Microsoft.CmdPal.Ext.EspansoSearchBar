@@ -11,8 +11,8 @@ namespace EspansoSearchBar.Pages;
 /// <summary>
 /// Main page of the extension: a searchable list of every espanso match, plus a handful of
 /// espanso "self management" commands (status/restart/enable/disable/toggle) pinned to the
-/// top so the whole espanso CLI surface described in AGENTS.md ("list espanso matches, also
-/// some commands for espanso itself") is reachable from one place.
+/// top, so both the match list and the espanso CLI management surface are reachable from one
+/// place.
 ///
 /// This is a <see cref="DynamicListPage"/> (not a plain ListPage) because filtering happens
 /// as the user types, and reloading the (possibly large) match list on every keystroke would
