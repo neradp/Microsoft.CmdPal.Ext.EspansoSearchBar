@@ -228,6 +228,30 @@ avoid is that *some* Windows 11 machine is eventually needed to *run/deploy* the
 machine doesn't need Visual Studio installed, only the built package + the imported
 certificate.
 
+### 6.2 Creating a release
+
+Pushing a git tag of the form `v<major>.<minor>.<patch>` publishes a **GitHub Release**
+automatically:
+
+```powershell
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The same `build.yml` workflow then:
+
+1. Stamps the package version from the tag (`v0.1.0` → MSIX version `0.1.0.0`) instead of the
+   `0.0.<run number>.0` scheme used for ordinary CI builds.
+2. Builds and signs the MSIX as usual (with a fresh CI self-signed certificate).
+3. Creates a GitHub Release named after the tag, attaching the signed `.msix` and the public
+   `EspansoSearchBar.cer`, with installation instructions in the release notes (same
+   trust-certificate + `Add-AppxPackage` steps as above).
+
+Users then install straight from the Releases page — no need to dig artifacts out of workflow
+runs. Remember that each release ships a *new* self-signed certificate, so the `.cer` from that
+release must be re-imported before installing (see the note above about real code-signing
+certificates for proper distribution).
+
 > Other "no local install" options that do **not** work here: browser-only cloud IDEs like
 > GitHub Codespaces or Gitpod default to Linux containers, and this project targets
 > `net10.0-windows10.0.26100.0` with WinRT/COM interop, which cannot build on Linux. GitHub

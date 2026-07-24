@@ -14,9 +14,15 @@ name: Build EspansoSearchBar
 on:
   push:
     branches: [ "main" ]
+    # Pushing a tag like v1.2.0 builds the package with that version and publishes
+    # a GitHub Release with the signed .msix and the public .cer attached.
+    tags: [ "v*" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch: {}
+
+permissions:
+  contents: write # needed to create GitHub Releases on tag pushes
 
 jobs:
   build:
@@ -39,18 +45,26 @@ jobs:
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v3
 
-      # Stamp a unique, monotonically increasing package version (0.0.<run_number>.0) into
-      # the manifest. Windows refuses to reinstall an MSIX with the same version that is
-      # already installed, so without this every artifact from CI would collide with the
-      # previously installed build. github.run_number increments per workflow run. (The
-      # revision digit stays 0 - it is reserved by the MSIX versioning rules.)
+      # Stamp a unique, monotonically increasing package version into the manifest.
+      # Windows refuses to reinstall an MSIX with the same version that is already
+      # installed, so without this every artifact from CI would collide with the
+      # previously installed build.
+      # - Tag builds (refs/tags/vX.Y.Z) use X.Y.Z.0 from the tag name.
+      # - All other builds use 0.0.<run_number>.0 (github.run_number increments per
+      #   workflow run; the revision digit stays 0 - it is reserved by MSIX versioning).
       - name: Stamp package version
+        id: version
         run: |
+          if ("${{ github.ref }}" -like "refs/tags/v*") {
+            $version = "${{ github.ref_name }}".TrimStart("v") + ".0"
+          } else {
+            $version = "0.0.${{ github.run_number }}.0"
+          }
           $manifest = "EspansoSearchBar\Package.appxmanifest"
-          $version = "0.0.${{ github.run_number }}.0"
           $xml = [xml](Get-Content $manifest -Raw)
           $xml.Package.Identity.Version = $version
           $xml.Save((Resolve-Path $manifest))
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           Write-Host "Stamped package version $version"
 
       - name: Restore NuGet packages
@@ -105,3 +119,40 @@ jobs:
           path: |
             EspansoSearchBar/bin/${{ env.PLATFORM }}/Release/**
           if-no-files-found: warn
+
+      # On tag pushes (v*), publish a GitHub Release with the signed .msix and the
+      # public .cer attached, plus installation instructions in the release notes.
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: EspansoSearchBar ${{ github.ref_name }}
+          files: |
+            EspansoSearchBar/AppxPackages/**/*.msix
+            EspansoSearchBar/AppxPackages/EspansoSearchBar.cer
+          body: |
+            ## Installation
+
+            Prerequisites: Windows 11 with [PowerToys](https://aka.ms/installpowertoys) (Command Palette) and [espanso](https://espanso.org) installed.
+
+            1. Download the `.msix` package and `EspansoSearchBar.cer` from the assets below.
+            2. Trust the signing certificate — one-time step per certificate, requires an **elevated (admin) PowerShell**:
+
+               ```powershell
+               Import-Certificate -FilePath .\EspansoSearchBar.cer -CertStoreLocation Cert:\LocalMachine\TrustedPeople
+               ```
+
+            3. Install the package (regular, non-elevated PowerShell is fine):
+
+               ```powershell
+               Add-AppxPackage -Path .\EspansoSearchBar_${{ steps.version.outputs.version }}_x64.msix
+               ```
+
+               To reinstall the *same* version over itself, add
+               `-ForceUpdateFromAnyVersion -ForceApplicationShutdown`.
+
+            4. Open Command Palette (default `Win+Alt+Space`). If the extension does not appear,
+               run **Reload Command Palette extensions** inside the palette.
+
+            > **Note:** the package is signed with a CI-generated self-signed certificate, and each
+            > release generates a *new* one — re-import the `.cer` from this release before installing.

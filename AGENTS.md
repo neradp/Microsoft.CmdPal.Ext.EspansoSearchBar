@@ -50,6 +50,13 @@ See `README.md` for the full architecture, design decisions and build instructio
 - No local .NET/Windows App SDK toolchain is assumed; the build is validated via the GitHub
   Actions workflow in `.github/workflows/build.yml` (`windows-latest` runner, MSBuild, MSIX).
 
+- **Extension settings forms cannot render a WinUI ToggleSwitch.** Command Palette renders
+  extension settings via Adaptive Cards (`AdaptiveCards.Rendering.WinUI3`), whose
+  `Input.Toggle` renderer hard-codes a `CheckBox`
+  (`microsoft/AdaptiveCards`, `source/uwp/SharedRenderer/lib/AdaptiveToggleInputRenderer.cpp`);
+  the `Adaptive.Input.Toggle` override style is owned by the CmdPal host, not extensions. The
+  switches seen in CmdPal's own settings UI are native XAML pages unavailable to extensions.
+
 ## Verified espanso facts agents must not "re-guess"
 
 These were confirmed by reading espanso's Rust source, not docs:
